@@ -27,6 +27,7 @@ import org.apache.camel.util.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.apache.camel.model.TransactedDefinition.PROPAGATION_REQUIRED;
@@ -103,7 +104,9 @@ public class LegacyTransactionErrorHandlerReifier
         TransactionErrorHandler answer = new TransactionErrorHandler(
                 camelContext, processor,
                 definition.getLogger(), definition.getOnRedelivery(),
-                definition.getRedeliveryPolicy(), transactionTemplate,
+                definition.getRedeliveryPolicy(),
+                transactionTemplate,
+                transactionTemplate.getPropagationBehavior() == TransactionDefinition.PROPAGATION_REQUIRES_NEW ? ObjectHelper.getIdentityHashCode(transactionTemplate, route) : null,
                 definition.getRetryWhilePolicy(camelContext),
                 getExecutorService(definition.getExecutorService(), definition.getExecutorServiceRef()),
                 definition.getRollbackLoggingLevel(), definition.getOnExceptionOccurred());

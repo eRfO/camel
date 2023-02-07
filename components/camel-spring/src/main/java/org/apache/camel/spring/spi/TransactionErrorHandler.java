@@ -16,6 +16,7 @@
  */
 package org.apache.camel.spring.spi;
 
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.camel.AsyncCallback;
@@ -59,6 +60,7 @@ public class TransactionErrorHandler extends RedeliveryErrorHandler {
      * @param redeliveryProcessor          an optional processor to run before redelivery attempt
      * @param redeliveryPolicy             policy for redelivery
      * @param transactionTemplate          the transaction template
+     * @param transactionKey               the transaction key used to identify the transaction owner
      * @param retryWhile                   retry while
      * @param executorService              the {@link java.util.concurrent.ScheduledExecutorService} to be used for
      *                                     redelivery thread pool. Can be <tt>null</tt>.
@@ -68,7 +70,8 @@ public class TransactionErrorHandler extends RedeliveryErrorHandler {
      */
     public TransactionErrorHandler(CamelContext camelContext, Processor output, CamelLogger logger,
                                    Processor redeliveryProcessor, RedeliveryPolicy redeliveryPolicy,
-                                   TransactionTemplate transactionTemplate, Predicate retryWhile,
+                                   TransactionTemplate transactionTemplate, String transactionKey,
+                                   Predicate retryWhile,
                                    ScheduledExecutorService executorService,
                                    LoggingLevel rollbackLoggingLevel, Processor onExceptionOccurredProcessor) {
 
@@ -76,13 +79,13 @@ public class TransactionErrorHandler extends RedeliveryErrorHandler {
               executorService, null, onExceptionOccurredProcessor);
         this.transactionTemplate = transactionTemplate;
         this.rollbackLoggingLevel = rollbackLoggingLevel;
-        this.transactionKey = ObjectHelper.getIdentityHashCode(transactionTemplate);
+        this.transactionKey = Optional.ofNullable(transactionKey).orElse(ObjectHelper.getIdentityHashCode(transactionTemplate));
     }
 
     @Override
     public ErrorHandler clone(Processor output) {
         TransactionErrorHandler answer = new TransactionErrorHandler(
-                camelContext, output, logger, redeliveryProcessor, redeliveryPolicy, transactionTemplate, retryWhilePolicy,
+                camelContext, output, logger, redeliveryProcessor, redeliveryPolicy, transactionTemplate, transactionKey, retryWhilePolicy,
                 executorService, rollbackLoggingLevel, onExceptionProcessor);
         // shallow clone is okay as we do not mutate these
         if (exceptionPolicies != null) {
@@ -111,9 +114,7 @@ public class TransactionErrorHandler extends RedeliveryErrorHandler {
     public void process(Exchange exchange) {
         // we have to run this synchronously as Spring Transaction does *not* support
         // using multiple threads to span a transaction
-        if (transactionTemplate.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRES_NEW
-                && exchange.getUnitOfWork() != null
-                && exchange.getUnitOfWork().isTransactedBy(transactionKey)) {
+        if (exchange.getUnitOfWork() != null && exchange.getUnitOfWork().isTransactedBy(transactionKey)) {
             // already transacted by this transaction template
             // so lets just let the error handler process it
             processByErrorHandler(exchange);

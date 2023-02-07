@@ -1231,8 +1231,9 @@ public final class ObjectHelper {
         return null;
     }
 
-    public static String getIdentityHashCode(Object object) {
-        return "0x" + Integer.toHexString(System.identityHashCode(object));
+    public static String getIdentityHashCode(Object... objects) {
+        int i = Arrays.stream(objects).mapToInt(System::identityHashCode).sum();
+        return "0x" + Integer.toHexString(i);
     }
 
     /**
